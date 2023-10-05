@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "ver 0.0.2"
+Description: "ver 0.0.3"
 
 Metadata: ""
 
@@ -25,10 +25,14 @@ Mappings: ""
 Conditions: ""
 
 Resources: 
-  s3Bucket:
+  websiteBucket:
     Type: AWS::S3::Bucket
     Properties: 
-      BucketName: !Ref BucketName
+      BucketName: Website
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
     Tags:
       - Key: Webapp
         Value: !Ref TagName
@@ -117,4 +121,17 @@ Outputs:
     Value: !GetAtt dynamodbTable.Arn
   RestAPIArn:
     Value: !GetAtt RestAPI.Arn
+  WebsiteURL:
+    Value: !GetAtt
+      - S3Bucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  WebsiteSecureURL:
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !GetAtt
+          - websiteBucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content
       
