@@ -1,24 +1,9 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: "ver 0.0.3"
+Description: "ver 0.0.4"
 
 Metadata: ""
 
-Parameters: 
-  TagName:
-    Description: "Name of the tags used for the Application"
-    Type: String
-  BucketName:
-    Description: "Bucket Name"
-    Type: String
-  LambdaName:
-    Description: "Name of the Function"
-    Type: String
-  RoleName:
-    Description: "Role Name"
-    Type: String
-  ApiName:
-    Description: "Name of teh REST API"
-    Type: String
+Parameters: ""
 
 Mappings: ""
 
@@ -28,34 +13,87 @@ Resources:
   websiteBucket:
     Type: AWS::S3::Bucket
     Properties: 
-      BucketName: Website
-      AccessControl: PublicRead
+      BucketName: website-41722369
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
-    Tags:
-      - Key: Webapp
-        Value: !Ref TagName
+      Tags:
+        - Key: Webapp
+          Value: GGSTCombo01
+  
+  templateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties: 
+      BucketName: cf-templates-264759380
+      Tags:
+        - Key: Webapp
+          Value: GGSTCombo01
+
+  lambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ggstLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonAPIGatewayInvokeFullAccess
+      Policies:
+        - PolicyName: ggst-log-group-role
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: logs:CreateLogGroup
+                Resource: !Sub arn:aws:logs:us-east-1:${AWS::AccountId}:*
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:us-east-1:${AWS::AccountId}:log-group:/aws/lambda/codeExample:*
+      Tags:
+        - Key: Webapp
+          Value: GGSTCombo01
   
   lambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Ref LambdaName
-      Handler: index.lambda_handler
+      FunctionName: codeExample
+      Handler: index.handler
       MemorySize: 128
-      Role: role-arn
+      Role: !GetAtt lambdaRole.Arn
       Runtime: nodejs18.x
       Environment:
         Variables:
-          key1: value1
+          example: value
       Code:
-        S3Bucket: 
-        S3Key: 
-        S3ObjectVersion: 
-        ZipFile: 
+        ZipFile: |
+          const http = require('http');
+          
+          const hostname = '127.0.0.1';
+          const port = 3000;
+          
+          const server = http.createServer((req, res) => {
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'text/plain');
+            res.end('Hello World');
+          });
+          
+          server.listen(port, hostname, () => {
+            console.log(`Server running at http://${hostname}:${port}/`);
+          }); 
       Tags:
         - Key: Webapp
-          Value: !Ref TagName
+          Value: GGSTCombo01
 
   comboTable:
     Type: AWS::DynamoDB::Table
@@ -102,28 +140,30 @@ Resources:
           WriteCapacityUnits: 1
       Tags: 
         - Key: Webapp
-          Value: !Ref TagName
+          Value: GGSTCombo01
 
   RestAPI:
-  Type: AWS::ApiGateway::RestApi
-  Properties: 
-    Name: !Ref ApiName
-    Tags: 
-      - Key: Webapp
-        Value: !Ref TagName
+    Type: AWS::ApiGateway::RestApi
+    Properties: 
+      Name: ComboAPI
+      Tags: 
+        - Key: Webapp
+          Value: GGSTCombo01
 
 Outputs:
   LambdaARN:
     Value: !GetAtt lambdaFunction.Arn
-  S3BucketArn:
-    Value: !GetAtt s3Bucket.Arn
-  DynamoDBTableArn:
-    Value: !GetAtt dynamodbTable.Arn
+  websiteBucketArn:
+    Value: !GetAtt websiteBucket.Arn
+  comboTableArn:
+    Value: !GetAtt comboTable.Arn
+  templateBucket:
+    Value: !GetAtt templateBucket.Arn
   RestAPIArn:
     Value: !GetAtt RestAPI.Arn
   WebsiteURL:
     Value: !GetAtt
-      - S3Bucket
+      - websiteBucket
       - WebsiteURL
     Description: URL for website hosted on S3
   WebsiteSecureURL:
