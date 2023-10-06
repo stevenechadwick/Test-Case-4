@@ -142,13 +142,159 @@ Resources:
         - Key: Webapp
           Value: GGSTCombo01
 
-  RestAPI:
+  restAPI:
     Type: AWS::ApiGateway::RestApi
     Properties: 
-      Name: ComboAPI
+      Name: comboAPI
+      ApiKeySourceType: "HEADER"
+      EndpointConfiguration: 
+          Types: 
+            - "REGIONAL"
       Tags: 
         - Key: Webapp
           Value: GGSTCombo01
+
+  apiResource:
+      Type: "AWS::ApiGateway::Resource"
+      Properties:
+          RestApiId: !Ref restAPI
+          PathPart: "combo"
+          ParentId: !GetAtt restAPI.RootResourceId
+
+  RootGETMethod:
+      Type: "AWS::ApiGateway::Method"
+      Properties:
+          RestApiId: !Ref restAPI
+          ResourceId: !GetAtt restAPI.RootResourceId
+          HttpMethod: "GET"
+          AuthorizationType: "NONE"
+          ApiKeyRequired: false
+          RequestParameters: {}
+          MethodResponses: 
+            - 
+              ResponseModels: 
+                  "application/json": !Ref ApiGatewayModel
+              StatusCode: "200"
+          Integration: 
+              CacheNamespace: !GetAtt restAPI.RootResourceId
+              IntegrationResponses: 
+                - 
+                  ResponseTemplates: {}
+                  StatusCode: "200"
+              PassthroughBehavior: "WHEN_NO_MATCH"
+              RequestTemplates: 
+                  "application/json": "{\"statusCode\": 200}"
+              TimeoutInMillis: 29000
+              Type: "MOCK"
+
+  RootPOSTMethod:
+      Type: "AWS::ApiGateway::Method"
+      Properties:
+          RestApiId: !Ref restAPI
+          ResourceId: !GetAtt restAPI.RootResourceId
+          HttpMethod: "POST"
+          AuthorizationType: "NONE"
+          ApiKeyRequired: false
+          RequestParameters: {}
+          MethodResponses: 
+            - 
+              ResponseModels: 
+                  "application/json": !Ref ApiGatewayModel
+              StatusCode: "200"
+          Integration: 
+              CacheNamespace: !GetAtt restAPI.RootResourceId
+              IntegrationResponses: 
+                - 
+                  ResponseTemplates: {}
+                  StatusCode: "200"
+              PassthroughBehavior: "WHEN_NO_MATCH"
+              RequestTemplates: 
+                  "application/json": "{\"statusCode\": 200}"
+              TimeoutInMillis: 29000
+              Type: "MOCK"
+
+  comboANYMethod:
+      Type: "AWS::ApiGateway::Method"
+      Properties:
+          RestApiId: !Ref restAPI
+          ResourceId: !Ref apiResource
+          HttpMethod: "ANY"
+          AuthorizationType: "NONE"
+          ApiKeyRequired: false
+          RequestParameters: {}
+          MethodResponses: 
+            - 
+              ResponseModels: 
+                  "application/json": !Ref ApiGatewayModel
+              StatusCode: "200"
+          Integration: 
+              CacheNamespace: !Ref apiResource
+              IntegrationResponses: 
+                - 
+                  ResponseTemplates: {}
+                  StatusCode: "200"
+              PassthroughBehavior: "WHEN_NO_MATCH"
+              RequestTemplates: 
+                  "application/json": "{\"statusCode\": 200}"
+              TimeoutInMillis: 29000
+              Type: "MOCK"
+
+  emptyModel:
+        Type: "AWS::ApiGateway::Model"
+        Properties:
+            RestApiId: !Ref restAPI
+            Name: "Empty"
+            Description: "This is a default empty schema model"
+            Schema: |
+                {
+                  "$schema": "http://json-schema.org/draft-04/schema#",
+                  "title" : "Empty Schema",
+                  "type" : "object"
+                }
+            ContentType: "application/json"
+
+  errorModel:
+      Type: "AWS::ApiGateway::Model"
+      Properties:
+          RestApiId: !Ref restAPI
+          Name: "Error"
+          Description: "This is a default error schema model"
+          Schema: |
+              {
+                "$schema" : "http://json-schema.org/draft-04/schema#",
+                "title" : "Error Schema",
+                "type" : "object",
+                "properties" : {
+                  "message" : { "type" : "string" }
+                }
+              }
+          ContentType: "application/json"
+
+
+  apiDeployment:
+      Type: "AWS::ApiGateway::Deployment"
+      Properties:
+          RestApiId: !Ref restAPI
+
+  devStage:
+      Type: "AWS::ApiGateway::Stage"
+      Properties:
+          StageName: "Development"
+          DeploymentId: !Ref apiDeployment
+          RestApiId: !Ref restAPI
+          CacheClusterEnabled: false
+          CacheClusterSize: "0.5"
+          TracingEnabled: false
+
+  prodStage:
+      Type: "AWS::ApiGateway::Stage"
+      Properties:
+          StageName: "Production"
+          DeploymentId: !Ref apiDeployment
+          RestApiId: !Ref restAPI
+          CacheClusterEnabled: false
+          CacheClusterSize: "0.5"
+          TracingEnabled: false
 
 Outputs:
   LambdaARN:
@@ -157,10 +303,29 @@ Outputs:
     Value: !GetAtt websiteBucket.Arn
   comboTableArn:
     Value: !GetAtt comboTable.Arn
-  templateBucket:
+  templateBucketArn:
     Value: !GetAtt templateBucket.Arn
-  RestAPIArn:
-    Value: !GetAtt RestAPI.Arn
+  RestApiId:
+    Value: !GetAtt restAPI.RestApiId
+  RestApiResourceId:
+    Value: !GetAtt restAPI.RootResourceId
+  RootGETMethodName:
+    Value: !Ref RootGETMethod
+  RootPOSTMethodName:
+    Value: !Ref RootPOSTMethod
+  comboANYMethodName:
+    Value: !Ref comboANYMethod
+  emptyModelName:
+    Value: !Ref emptyModel
+  errorModelName:
+    Value: !Ref errorModel
+  devStageName:
+    Value: !Ref devStage
+  prodStageName:
+    Value: !Ref prodStage
+  apiDeploymentId:
+    Value: !GetAtt apiDeployment.DeploymentId
+
   WebsiteURL:
     Value: !GetAtt
       - websiteBucket
