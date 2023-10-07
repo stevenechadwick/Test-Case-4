@@ -325,18 +325,13 @@ Outputs:
     Value: !Ref prodStage
   apiDeploymentId:
     Value: !GetAtt apiDeployment.DeploymentId
-
   WebsiteURL:
-    Value: !GetAtt
-      - websiteBucket
-      - WebsiteURL
     Description: URL for website hosted on S3
+    Value: !GetAtt websiteBucket.WebsiteURL
   WebsiteSecureURL:
+    Description: Name of S3 bucket to hold website content
     Value: !Join
       - ''
       - - 'https://'
-        - !GetAtt
-          - websiteBucket
-          - DomainName
-    Description: Name of S3 bucket to hold website content
+        - !GetAtt websiteBucket.DomainName
       
