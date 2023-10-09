@@ -22,5 +22,8 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: List directory contents
+      run: ls -la src/
+
     - name: Run Jest tests
       run: npm test
