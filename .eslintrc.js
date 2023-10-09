@@ -5,7 +5,11 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:prettier/recommended'
   ],
-  plugins: ['@typescript-eslint', 'prettier'],
+  parserOptions: {
+    project: './tsconfig.json',
+    tsconfigRootDir: __dirname,
+  },
+  plugins: ['@typescript-eslint', 'prettier', 'import', 'react'],
   rules: {
     'prettier/prettier': 'error',
     // Add any other rules if you want
