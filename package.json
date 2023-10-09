@@ -1,14 +1,11 @@
 {
   "name": "test-case-4",
   "version": "0.1.0",
-  "bin": {
-    "test-case-4": "bin/test-case-4.js"
-  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch --passWithNoTests",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix"
   },
