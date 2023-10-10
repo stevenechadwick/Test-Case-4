@@ -1,13 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: ver 0.0.4
-
-Metadata: 
-
-Parameters: 
-
-Mappings: 
-
-Conditions: 
+Description: ver 0.1.1
 
 Resources: 
   websiteBucket:
@@ -53,12 +45,35 @@ Resources:
                 Action:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: !Sub arn:aws:logs:us-east-1:${AWS::AccountId}:log-group:/aws/lambda/codeExample:*
+                Resource: !Sub arn:aws:logs:us-east-1:${AWS::AccountId}:log-group:/aws/lambda/BotFunction:*
+  
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ''
+            Effect: 'Allow'
+            Principal:
+              Service:
+                - 'apigateway.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action: 'lambda:*'
+                Resource: !GetAtt lambdaFunction.Arn
   
   lambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: codeExample
+      FunctionName: BotFunction
       Handler: index.handler
       MemorySize: 128
       Role: !GetAtt lambdaRole.Arn
@@ -83,11 +98,20 @@ Resources:
             console.log(`Server running at http://${hostname}:${port}/`);
           }); 
 
+  lambdaPermission:
+    DependsOn: ApiResource
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt lambdaFunction.Arn
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/lambdaProxy"
+
   comboTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: Combos
-      BillingMode: PROVISIONED
+      BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - 
           AttributeName: ServerID
@@ -102,75 +126,45 @@ Resources:
         - 
           AttributeName: ComboID
           KeyType: RANGE
-      ProvisionedCapacitySettings:
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
 
-  comboAPI:
+  RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties: 
-      Name: comboAPI
+      Name: BotRestAPI
       ApiKeySourceType: HEADER
       EndpointConfiguration: 
           Types: 
             - REGIONAL
 
-  apiResource:
-      Type: AWS::ApiGateway::Resource
-      Properties:
-          RestApiId: !Ref comboAPI
-          PathPart: combo
-          ParentId: !GetAtt comboAPI.RootResourceId
+  ApiResource:
+    DependsOn: RestAPI
+    Type: AWS::ApiGateway::Resource
+    Properties:
+        RestApiId: !Ref RestAPI
+        PathPart: lambdaProxy
+        ParentId: !GetAtt RestAPI.RootResourceId
 
-  RootANYMethod:
-      Type: AWS::ApiGateway::Method
-      Properties:
-          RestApiId: !Ref comboAPI
-          ResourceId: !Ref apiResource
-          HttpMethod: ANY
-          AuthorizationType: NONE
-          Integration:
-             Type: MOCK
+  ResourcePOSTMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref ApiResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaFunction.Arn}/invocations'
 
-  comboANYMethod:
-      Type: AWS::ApiGateway::Method
-      Properties:
-          RestApiId: !Ref comboAPI
-          ResourceId: !GetAtt comboAPI.RootResourceId
-          HttpMethod: ANY
-          AuthorizationType: NONE
-          Integration:
-            Type: MOCK
-
-  apiDeployment:
+  DevStage:
+      DependsOn: ResourcePOSTMethod
       Type: AWS::ApiGateway::Deployment
-      DependsOn: 
-        - RootANYMethod
-        - comboANYMethod
       Properties:
-          RestApiId: !Ref comboAPI
+          RestApiId: !Ref RestAPI
           StageName: Development
 
 Outputs:
-  LambdaARN:
-    Value: !GetAtt lambdaFunction.Arn
-  websiteBucketArn:
-    Value: !GetAtt websiteBucket.Arn
-  comboTableArn:
-    Value: !GetAtt comboTable.Arn
-  templateBucketArn:
-    Value: !GetAtt templateBucket.Arn
-  RestApiId:
-    Value: !GetAtt comboAPI.RestApiId
-  RestApiResourceId:
-    Value: !GetAtt comboAPI.RootResourceId
-  RootANYMethodName:
-    Value: !Ref RootANYMethod
-  comboANYMethodName:
-    Value: !Ref comboANYMethod
-  apiDeploymentId:
-    Value: !GetAtt apiDeployment.DeploymentId
   WebsiteURL:
     Description: URL for website hosted on S3
     Value: !GetAtt websiteBucket.WebsiteURL
